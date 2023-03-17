@@ -2,9 +2,12 @@
 # Copyright (c) 2020  James Shiffer
 # This file contains the main application logic.
 
-import argparse, api, getpass, logging, os, sys
-from config import config
-import stitcher
+import argparse, api, getpass, logging, os, stitcher, save
+
+if os.path.exists('config.py'):
+    from config import config
+else:
+    config={'email':'','password':''}
 
 def main():
     client = api.ArchiveReaderClient()
@@ -73,12 +76,16 @@ def main():
     if not args.all_pages:
         if not args.page_start and not args.page_end:
             print('The book is %d pages long. Which pages do you want?' % page_count)
-            desired_pages = input('Enter a range (eg. 1-15) or leave blank for all: ')
-
-            if desired_pages:
-                [start, end] = desired_pages.split('-')
-                start = int(start) - 1
-                end = int(end)
+            while True:
+                desired_pages = input('Enter a range (eg. 1-15) or leave blank for all: ')
+                if desired_pages:
+                    try:
+                        [start, end] = desired_pages.split('-')
+                        start = int(start) - 1
+                        end = int(end)
+                    except ValueError:
+                        continue
+                    break
         else:
             if args.page_start: start = args.page_start - 1
             if args.page_end: end = args.page_end
@@ -107,7 +114,7 @@ def main():
                     print('Failed to download page %d' % (i + 1))
                     failed_pages.append(i + 1)
                 continue
-        
+
         with open('%s/%d.jpg' % (dir, i + 1), 'wb') as file:
             file.write(contents)
         done_count = i + 1 - start
@@ -119,6 +126,15 @@ def main():
 
     # Stitch the pages together
     stitcher.stitch(dir, id)
+
+    if input('Store login details for later? ').lower().startswith('y'):
+        if os.path.exists('config.py'):
+            if input('Replace current login details? ').lower().startswith('y'):
+                os.remove('config.py')
+                save.save_config(username, password)
+        else:
+            save.save_config(username, password)
+
     print('done')
 
 if __name__ == '__main__':
